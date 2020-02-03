@@ -13,12 +13,12 @@ cat  <<EOF
 }
 EOF
 }
-NODE=$(curl -Gs http://127.0.0.1:10255/pods/ | grep -o '"nodeName":"[^"]*"' | head -n 1|rev | cut -d: -f1 | rev)
-NODE=$(eval echo $NODE | tr -d '"')
+NODE=${MY_NODE_NAME}
 BASE_URL=$1
 KEY=/etc/kubernetes/pki/apiserver-kubelet-client.key
 CERT=/etc/kubernetes/pki/apiserver-kubelet-client.crt
+TOKEN=${SA_TOKEN}
 
-/usr/bin/curl --insecure --key $KEY --cert $CERT --request PATCH -H 'Content-Type: application/merge-patch+json' -H 'Accept: application/json' --data "$(generate_post_data $2 $3)" $BASE_URL/api/v1/nodes/$NODE
+/usr/bin/curl --header "Authorization: Bearer $TOKEN" --insecure --request PATCH -H 'Content-Type: application/merge-patch+json' -H 'Accept: application/json' --data "$(generate_post_data $2 $3)" $BASE_URL/api/v1/nodes/$NODE
 
 

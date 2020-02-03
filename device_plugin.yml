@@ -8,7 +8,7 @@ data:
   reg-exp-sfc: (?m)[\r\n]+^.*SFC[6-9].*$
   socket-name: sfcNIC
   resource-name: solarflare/smartNIC
-  k8s-api: http://127.0.0.1:8080
+  k8s-api: https://${KUBERNETES_SERVICE_HOST}:443
   node-label-onload-version: device.sfc.onload-version
 ---
 apiVersion: extensions/v1beta1
@@ -37,6 +37,10 @@ spec:
         imagePullPolicy: Never
         command: ["./start.sh"]
         env:
+          - name: MY_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
         - name: ONLOAD_VERSION
           valueFrom:
             configMapKeyRef:
