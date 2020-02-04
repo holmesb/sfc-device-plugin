@@ -42,7 +42,7 @@ type sfcNICManager struct {
 func NewSFCNICManager() (*sfcNICManager, error) {
 	return &sfcNICManager{
 		devices:     make(map[string]*pluginapi.Device),
-		deviceFiles: []string{"/dev/onload", "/dev/onload_cplane", "dev/onload_epoll", "/dev/sfc_char", "/dev/sfc_affinity"},
+		deviceFiles: []string{"/dev/onload", "/dev/onload_epoll", "/dev/sfc_char", "/dev/sfc_affinity"},
 	}, nil
 }
 
@@ -94,29 +94,29 @@ func (sfc *sfcNICManager) discoverSolarflareResources() bool {
 }
 
 func (sfc *sfcNICManager) isOnloadInstallHealthy() bool {
-	healthy := false
-	//cmdName := "onload"
-	cmdName := "ssh"
-	//out, _ := ExecCommand(cmdName, "--version")
-	out, _ := ExecCommand(cmdName, "-o", "StrictHostKeyChecking=no", "127.0.0.1", "onload --version")
-
-	if strings.Contains(out.String(), "Solarflare Communications") && strings.Contains(out.String(), onloadver) {
-		//cmdName = "/sbin/ldconfig"
-		out, _ := ExecCommand(cmdName, "-o", "StrictHostKeyChecking=no", "127.0.0.1", "/sbin/ldconfig -N -v")
-
-		if strings.Contains(out.String(), "libonload") {
-			if AreAllOnloadDevicesAvailable() == true {
-				fmt.Println("All Onload devices Verified\n")
-				healthy = true
-			} else {
-				fmt.Errorf("Inconsistent Onload installation. All Onload devices are not available!!!")
-			}
-		} else {
-			fmt.Errorf("Inconsistent Onload installation. libonload not detected.")
-		}
-	} else {
-		fmt.Errorf("Inconsistent Onload installation.")
-	}
+	healthy := true
+//	//cmdName := "onload"
+//	cmdName := "ssh"
+//	//out, _ := ExecCommand(cmdName, "--version")
+//	out, _ := ExecCommand(cmdName, "-o", "StrictHostKeyChecking=no", "127.0.0.1", "onload --version")
+//
+//	if strings.Contains(out.String(), "Solarflare Communications") && strings.Contains(out.String(), onloadver) {
+//		//cmdName = "/sbin/ldconfig"
+//		out, _ := ExecCommand(cmdName, "-o", "StrictHostKeyChecking=no", "127.0.0.1", "/sbin/ldconfig -N -v")
+//
+//		if strings.Contains(out.String(), "libonload") {
+//			if AreAllOnloadDevicesAvailable() == true {
+//				fmt.Println("All Onload devices Verified\n")
+//				healthy = true
+//			} else {
+//				fmt.Errorf("Inconsistent Onload installation. All Onload devices are not available!!!")
+//			}
+//		} else {
+//			fmt.Errorf("Inconsistent Onload installation. libonload not detected.")
+//		}
+//	} else {
+//		fmt.Errorf("Inconsistent Onload installation.")
+//	}
 	return healthy
 }
 
@@ -286,55 +286,55 @@ func AnnotateNodeWithOnloadVersion(version string) {
 	glog.Info(out.String())
 }
 
-func AreAllOnloadDevicesAvailable() bool {
-	glog.Info("AreAllOnloadDevicesAvailable\n")
+//func AreAllOnloadDevicesAvailable() bool {
+//	glog.Info("AreAllOnloadDevicesAvailable\n")
+//
+//	found := 0
+//
+//	// read the whole file at once
+//	b, err := ioutil.ReadFile("/gopath/proc/devices")
+//	if err != nil {
+//		panic(err)
+//	}
+//	s := string(b)
+//
+//	if strings.Index(s, "onload_epoll") > 0 {
+//		found++
+//	}
+//
+//	if strings.Index(s, "onload_cplane") > 0 {
+//		found++
+//	}
+//
+//	// '\n' is added to avoid a match with onload_cplane and onload_epoll
+//	if strings.Index(s, "onload\n") > 0 {
+//		found++
+//	}
+//
+//	if found == 3 {
+//		return true
+//	} else {
+//		return false
+//	}
+//}
 
-	found := 0
-
-	// read the whole file at once
-	b, err := ioutil.ReadFile("/gopath/proc/devices")
-	if err != nil {
-		panic(err)
-	}
-	s := string(b)
-
-	if strings.Index(s, "onload_epoll") > 0 {
-		found++
-	}
-
-	if strings.Index(s, "onload_cplane") > 0 {
-		found++
-	}
-
-	// '\n' is added to avoid a match with onload_cplane and onload_epoll
-	if strings.Index(s, "onload\n") > 0 {
-		found++
-	}
-
-	if found == 3 {
-		return true
-	} else {
-		return false
-	}
-}
-
-func (sfc *sfcNICManager) UnInit() {
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-
-	//fmt.Println("CMD--" + cmdName + ": " + out.String())
-	cmdName := "onload_uninstall"
-	cmd := exec.Command(cmdName)
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
-	}
-	//fmt.Println("CMD--" + cmdName + ": " + out.String())
-
-	return
-}
+//func (sfc *sfcNICManager) UnInit() {
+//	var out bytes.Buffer
+//	var stderr bytes.Buffer
+//
+//	//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//	cmdName := "onload_uninstall"
+//	cmd := exec.Command(cmdName)
+//	cmd.Stdout = &out
+//	cmd.Stderr = &stderr
+//	err := cmd.Run()
+//	if err != nil {
+//		fmt.Println("CMD--" + cmdName + ": " + fmt.Sprint(err) + ": " + stderr.String())
+//	}
+//	//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//
+//	return
+//}
 
 func main() {
 	flag.Parse()
@@ -393,9 +393,13 @@ func main() {
 		grpcServer.Serve(lis)
 	}()
 
-	// TODO: fix this
-	time.Sleep(5 * time.Second)
-	// Registers with Kubelet.
+	conn, err := dial(path.Join(pluginapi.DevicePluginPath, pluginEndpoint), 5 * time.Second)
+	if err != nil {
+		glog.Fatal("Error dialling grpcServer\n")
+		return
+	}
+	conn.Close()
+
 	err = Register(pluginapi.KubeletSocket, pluginEndpoint, resourceName)
 	if err != nil {
 		glog.Fatal(err)

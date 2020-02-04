@@ -3,6 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: configmap
+  namespace: kube-system
 data:
   onload-version: 201606-u1.3
   reg-exp-sfc: (?m)[\r\n]+^.*SFC[6-9].*$
@@ -11,7 +12,7 @@ data:
   k8s-api: https://${KUBERNETES_SERVICE_HOST}:443
   node-label-onload-version: device.sfc.onload-version
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: sfc-device-plugin
@@ -19,9 +20,13 @@ metadata:
   labels:
     tier: node
 spec:
+  selector:
+    matchLabels:
+      name: sfc-device-plugin
   template:
     metadata:
       labels:
+        name: sfc-device-plugin
         tier: node
     spec:
       hostNetwork: true
@@ -33,14 +38,15 @@ spec:
         effect: NoSchedule
       containers:
       - name: device-plugin-ctr
-        image: sfc-dev-plugin:latest
-        imagePullPolicy: Never
-        command: ["./start.sh"]
+        image: shadwell/sfc-dev-plugin2:latest
+        imagePullPolicy: Always
+        command: ["sh", "-c", "tail -f /dev/null"]
+#        command: ["./start.sh"]
         env:
-          - name: MY_NODE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.nodeName
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         - name: ONLOAD_VERSION
           valueFrom:
             configMapKeyRef:
