@@ -39,11 +39,34 @@ type sfcNICManager struct {
 	deviceFiles []string
 }
 
+func dial(unixSocketPath string, timeout time.Duration) (*grpc.ClientConn, error) {
+	c, err := grpc.Dial(unixSocketPath, grpc.WithInsecure(), grpc.WithBlock(),
+		grpc.WithTimeout(timeout),
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout("unix", addr, timeout)
+		}),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
 func NewSFCNICManager() (*sfcNICManager, error) {
 	return &sfcNICManager{
 		devices:     make(map[string]*pluginapi.Device),
 		deviceFiles: []string{"/dev/onload", "/dev/onload_epoll", "/dev/sfc_char", "/dev/sfc_affinity"},
 	}, nil
+}
+
+func (m *sfcNICManager) GetDevicePluginOptions(context.Context, *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+	return &pluginapi.DevicePluginOptions{}, nil
+}
+
+func (m *sfcNICManager) PreStartContainer(context.Context, *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
+	return &pluginapi.PreStartContainerResponse{}, nil
 }
 
 func ExecCommand(cmdName string, arg ...string) (bytes.Buffer, error) {
@@ -95,108 +118,107 @@ func (sfc *sfcNICManager) discoverSolarflareResources() bool {
 
 func (sfc *sfcNICManager) isOnloadInstallHealthy() bool {
 	healthy := true
-//	//cmdName := "onload"
-//	cmdName := "ssh"
-//	//out, _ := ExecCommand(cmdName, "--version")
-//	out, _ := ExecCommand(cmdName, "-o", "StrictHostKeyChecking=no", "127.0.0.1", "onload --version")
-//
-//	if strings.Contains(out.String(), "Solarflare Communications") && strings.Contains(out.String(), onloadver) {
-//		//cmdName = "/sbin/ldconfig"
-//		out, _ := ExecCommand(cmdName, "-o", "StrictHostKeyChecking=no", "127.0.0.1", "/sbin/ldconfig -N -v")
-//
-//		if strings.Contains(out.String(), "libonload") {
-//			if AreAllOnloadDevicesAvailable() == true {
-//				fmt.Println("All Onload devices Verified\n")
-//				healthy = true
-//			} else {
-//				fmt.Errorf("Inconsistent Onload installation. All Onload devices are not available!!!")
-//			}
-//		} else {
-//			fmt.Errorf("Inconsistent Onload installation. libonload not detected.")
-//		}
-//	} else {
-//		fmt.Errorf("Inconsistent Onload installation.")
-//	}
+	//	//cmdName := "onload"
+	//	cmdName := "ssh"
+	//	//out, _ := ExecCommand(cmdName, "--version")
+	//	out, _ := ExecCommand(cmdName, "-o", "StrictHostKeyChecking=no", "127.0.0.1", "onload --version")
+	//
+	//	if strings.Contains(out.String(), "Solarflare Communications") && strings.Contains(out.String(), onloadver) {
+	//		//cmdName = "/sbin/ldconfig"
+	//		out, _ := ExecCommand(cmdName, "-o", "StrictHostKeyChecking=no", "127.0.0.1", "/sbin/ldconfig -N -v")
+	//
+	//		if strings.Contains(out.String(), "libonload") {
+	//			if AreAllOnloadDevicesAvailable() == true {
+	//				fmt.Println("All Onload devices Verified\n")
+	//				healthy = true
+	//			} else {
+	//				fmt.Errorf("Inconsistent Onload installation. All Onload devices are not available!!!")
+	//			}
+	//		} else {
+	//			fmt.Errorf("Inconsistent Onload installation. libonload not detected.")
+	//		}
+	//	} else {
+	//		fmt.Errorf("Inconsistent Onload installation.")
+	//	}
 	return healthy
 }
 
-func (sfc *sfcNICManager) installOnload() error {
-	cmdName := "yum"
-	out, err := ExecCommand(cmdName, "version")
-	//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//func (sfc *sfcNICManager) installOnload() error {
+//	cmdName := "yum"
+//	out, err := ExecCommand(cmdName, "version")
+//	//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//
+//	// if yum not found, abort and return error
+//	if err == nil {
+//		// install onload dependencies
+//		cmdName = "yum"
+//		out, err = ExecCommand(cmdName, "-y", "install", "gcc", "make", "libc", "libc-devel", "perl", "autoconf", "automake", "libtool", "kernel‐devel", "binutils", "gettext", "gawk", "gcc", "sed", "make", "bash", "glibc-common", "automake", "libtool", "libpcap", "libpcap-devel", "python-devel", "glibc‐devel.i586", "lshw")
+//		//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//
+//		os.Chdir(os.Getenv("HOME"))
+//		// unload and uninstall current onload
+//		cmdName = "onload_tool unload"
+//		out, err = ExecCommand("onload_tool", "unload")
+//		//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//		cmdName = "onload_uninstall"
+//		out, err = ExecCommand(cmdName)
+//		//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//
+//		os.Chdir(os.Getenv("HOME"))
+//		// remove current onload
+//		cmdName = "rm onload"
+//		out, err = ExecCommand("/bin/sh", "-c", "rm -rf ./openonload*")
+//		//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//
+//		os.Chdir(os.Getenv("HOME"))
+//		// get open onload from a authorized source - further security todo
+//		cmdName = "get onload"
+//
+//		if strings.HasPrefix(onloadsrc, "http://") {
+//			out, err = ExecCommand("wget", onloadsrc)
+//		} else {
+//			out, err = ExecCommand("cp", onloadsrc, ".")
+//		}
+//		//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//
+//		os.Chdir(os.Getenv("HOME"))
+//		// unzip onload
+//		cmdName = "unzip onload"
+//		cmdstring := "./openonload-" + onloadver + ".tgz"
+//		out, err = ExecCommand("tar", "xvzf", cmdstring)
+//		//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//
+//		os.Chdir(os.Getenv("HOME"))
+//		// install current onload
+//		cmdName = "./openonload-" + onloadver + "/scripts/onload_install"
+//		out, err = ExecCommand(cmdName)
+//		if err != nil {
+//			return fmt.Errorf("onload_install failed: %v", err)
+//		}
+//		if strings.Contains(out.String(), "onload_install: Install complete") {
+//			fmt.Println("CMD--" + cmdName + ": " + "Install complete")
+//
+//			// reload onload
+//			cmdName = "onload_tool unload"
+//			_, err = ExecCommand("onload_tool", "unload")
+//			//fmt.Println("CMD--" + cmdName + ": " + out.String())
+//			cmdName = "onload_tool reload"
+//			_, err = ExecCommand("onload_tool", "reload")
+//			if !sfc.isOnloadInstallHealthy() {
+//				return fmt.Errorf("Onload Install Failed!!")
+//			}
+//		} else {
+//			return fmt.Errorf("onload_install could not be completed!!!!")
+//		}
+//	} else {
+//		return err
+//	}
+//	return nil
+//}
 
-	// if yum not found, abort and return error
-	if err == nil {
-		// install onload dependencies
-		cmdName = "yum"
-		out, err = ExecCommand(cmdName, "-y", "install", "gcc", "make", "libc", "libc-devel", "perl", "autoconf", "automake", "libtool", "kernel‐devel", "binutils", "gettext", "gawk", "gcc", "sed", "make", "bash", "glibc-common", "automake", "libtool", "libpcap", "libpcap-devel", "python-devel", "glibc‐devel.i586", "lshw")
-		//fmt.Println("CMD--" + cmdName + ": " + out.String())
-
-		os.Chdir(os.Getenv("HOME"))
-		// unload and uninstall current onload
-		cmdName = "onload_tool unload"
-		out, err = ExecCommand("onload_tool", "unload")
-		//fmt.Println("CMD--" + cmdName + ": " + out.String())
-		cmdName = "onload_uninstall"
-		out, err = ExecCommand(cmdName)
-		//fmt.Println("CMD--" + cmdName + ": " + out.String())
-
-		os.Chdir(os.Getenv("HOME"))
-		// remove current onload
-		cmdName = "rm onload"
-		out, err = ExecCommand("/bin/sh", "-c", "rm -rf ./openonload*")
-		//fmt.Println("CMD--" + cmdName + ": " + out.String())
-
-		os.Chdir(os.Getenv("HOME"))
-		// get open onload from a authorized source - further security todo
-		cmdName = "get onload"
-
-		if strings.HasPrefix(onloadsrc, "http://") {
-			out, err = ExecCommand("wget", onloadsrc)
-		} else {
-			out, err = ExecCommand("cp", onloadsrc, ".")
-		}
-		//fmt.Println("CMD--" + cmdName + ": " + out.String())
-
-		os.Chdir(os.Getenv("HOME"))
-		// unzip onload
-		cmdName = "unzip onload"
-		cmdstring := "./openonload-" + onloadver + ".tgz"
-		out, err = ExecCommand("tar", "xvzf", cmdstring)
-		//fmt.Println("CMD--" + cmdName + ": " + out.String())
-
-		os.Chdir(os.Getenv("HOME"))
-		// install current onload
-		cmdName = "./openonload-" + onloadver + "/scripts/onload_install"
-		out, err = ExecCommand(cmdName)
-		if err != nil {
-			return fmt.Errorf("onload_install failed: %v", err)
-		}
-		if strings.Contains(out.String(), "onload_install: Install complete") {
-			fmt.Println("CMD--" + cmdName + ": " + "Install complete")
-
-			// reload onload
-			cmdName = "onload_tool unload"
-			_, err = ExecCommand("onload_tool", "unload")
-			//fmt.Println("CMD--" + cmdName + ": " + out.String())
-			cmdName = "onload_tool reload"
-			_, err = ExecCommand("onload_tool", "reload")
-			if !sfc.isOnloadInstallHealthy() {
-				return fmt.Errorf("Onload Install Failed!!")
-			}
-		} else {
-			return fmt.Errorf("onload_install could not be completed!!!!")
-		}
-	} else {
-		return err
-	}
-	return nil
-}
-
-func (sfc *sfcNICManager) Init() error {
+func (sfc *sfcNICManager) Init() int {
 	glog.Info("Init\n")
-	err := sfc.installOnload()
-	return err
+	return 0
 }
 
 func Register(kubeletEndpoint string, pluginEndpoint, socketName string) error {
@@ -381,7 +403,7 @@ func main() {
 	// Starts device plugin service.
 	go func() {
 		defer wg.Done()
-		fmt.Printf("DveicePluginPath %s, pluginEndpoint %s\n", pluginapi.DevicePluginPath, pluginEndpoint)
+		fmt.Printf("DevicePluginPath %s, pluginEndpoint %s\n", pluginapi.DevicePluginPath, pluginEndpoint)
 		fmt.Printf("device-plugin start server at: %s\n", path.Join(pluginapi.DevicePluginPath, pluginEndpoint))
 		lis, err := net.Listen("unix", path.Join(pluginapi.DevicePluginPath, pluginEndpoint))
 		if err != nil {
@@ -393,7 +415,7 @@ func main() {
 		grpcServer.Serve(lis)
 	}()
 
-	conn, err := dial(path.Join(pluginapi.DevicePluginPath, pluginEndpoint), 5 * time.Second)
+	conn, err := dial(path.Join(pluginapi.DevicePluginPath, pluginEndpoint), 5*time.Second)
 	if err != nil {
 		glog.Fatal("Error dialling grpcServer\n")
 		return
