@@ -9,7 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/golang/glog"
-	"io/ioutil"
+	//"io/ioutil"
 	"net"
 	"path"
 	"regexp"
